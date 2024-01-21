@@ -54,7 +54,7 @@ If a question does not make any sense, or is not factually coherent, explain why
 If you don't know the answer, please don't share false information.
 <</SYS>>
 Input: {{"symptoms": "$symptoms"}}
-Output the answer in JSON in the following format: {{"priority": patient_priority, "description": reasoning_for_patient_priority}}. Only output JSON
+Output the answer in JSON in the following format: {{"priority": int_patient_priority, "description": reasoning_for_patient_priority}}. Only output JSON
 
 [/INST]
 """)
@@ -71,13 +71,25 @@ def request_llm(symptoms) -> dict:
                              json={"prompt": prompt, "model": "medllama2", "stream": False, "format": "json"})
     try:
         generated_dict = json.loads(response.json()["response"])
-    except JSONDecodeError:
-        response = requests.post(
-            'http://127.0.0.1:11434/api/generate', params={"prompt": prompt, "model": "medllama2"})
-        generated_dict = json.loads(response.json()["response"])
+        if not validate_response(generated_dict):
+            generated_dict = llm_retry(prompt, generated_dict)
+    except Exception:
+        generated_dict = llm_retry(prompt, generated_dict)
+        
 
     return generated_dict
 
+def llm_retry(prompt, generated_dict: dict) -> dict:
+    """retry the Ollama API request"""
+    while not validate_response(generated_dict):
+        response = requests.post('http://127.0.0.1:11434/api/generate',
+                                json={"prompt": prompt, "model": "medllama2", "stream": False, "format": "json"})
+        generated_dict = json.loads(response.json()["response"])
+    return generated_dict
+
+def validate_response(generated_dict: dict) -> bool:
+    """validate the response from the Ollama API"""
+    return generated_dict.get('priority', None) is not None and generated_dict.get('description', None) is not None and isinstance(generated_dict.get('priority', None), int) and isinstance(generated_dict.get('description', None), str)
 
 def add_patient_to_queue(queue_info: dict, patient: Patient):
     """add a patient to the queue table"""
@@ -125,7 +137,7 @@ def serialize_queue(queue: list) -> list:
 
 def serialize_queue_entry(queue_entry: Queue) -> dict:
     """serialize a queue entry"""
-    q_dict = queue_entry.__dict__
+    q_dict = queue_entry.__dict__.copy()
     q_dict['patient'] = q_dict['patient'].__dict__
     return q_dict
 
@@ -162,4 +174,4 @@ def patient_complete():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000)
