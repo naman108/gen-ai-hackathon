@@ -7,7 +7,7 @@ import time
 def check_notifications():
     context = zmq.Context()
     socket = context.socket(zmq.PAIR)
-    socket.connect("tcp://127.0.0.1:5555")  # Bind to the address where you'll receive messages
+    socket.connect("tcp://134.190.135.240:5555")  # Bind to the address where you'll receive messages
     
     notifications = []  # List to store received messages
 

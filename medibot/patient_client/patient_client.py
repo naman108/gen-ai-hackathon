@@ -3,7 +3,7 @@ import requests
 
 
 def call_patient_api(msi_card_number, symptoms):
-    url = "http://127.0.0.1:5000/patient"  # replace with your actual API URL
+    url = "http://134.190.135.240:5000/patient"  # replace with your actual API URL
     data = {
         "msi_card_number": msi_card_number,
         "symptoms": symptoms
