@@ -9,3 +9,6 @@ class Queue:
     patient: Patient
     priority: int
     description: str
+
+    def __str__(self) -> str:
+        return f"[patient={self.patient}, priority={self.priority}, description={self.description}]"

@@ -23,6 +23,7 @@ with app.app_context():
 
 ctx = zmq.Context()
 socket = ctx.socket(zmq.PAIR)
+socket.bind("tcp://*:5555")
 
 conflicts = []
 
@@ -85,22 +86,24 @@ def add_patient_to_queue(queue_info: dict, patient: Patient):
     queue_entry = Queue(
         patient=patient, priority=queue_info['priority'], description=queue_info['description'])
 
-    if len(patient_index[int(queue_info['priority'])]) > 0:
-        resolve_patient_conflict(patient, queue_info)
+    priority_index_value = patient_index[int(queue_info['priority'])-1]
+
+    if len(priority_index_value) > 0:
+        resolve_patient_conflict(queue_entry, queue_info)
 
     else:
-        patient_index[int(queue_info['priority'])].append(queue_entry)
+        priority_index_value.append(queue_entry)
 
     return get_patient_priority(queue_entry)
 
 def get_patient_priority(queue_entry: Queue) -> int:
     """get the patient's priority"""
-    priority_index = patient_index[queue_entry.priority]
+    priority_index = patient_index[queue_entry.priority-1]
     return priority_index.index(queue_entry) + 1
 
 def resolve_patient_conflict(queue_entry: Queue, queue_info: dict):
     """resolve a patient conflict"""
-    conflicting_queue = patient_index[queue_info['priority']]
+    conflicting_queue = patient_index[queue_info['priority']-1]
 
     # send a notification to the nurse
     decision = send_nurse_notification(
@@ -111,9 +114,20 @@ def resolve_patient_conflict(queue_entry: Queue, queue_info: dict):
 
 def send_nurse_notification(queue_entry: Queue, conflicting_queue: list, priority: int) -> dict:
     """send a notification to the nurse"""
-    socket.send_string(json.dumps(
-        {"patient": queue_entry, "priority": priority, "conflicting_queue": conflicting_queue}))
+    q_entry_dict = serialize_queue_entry(queue_entry)
+    q_conf_dict = serialize_queue(conflicting_queue)
+    socket.send_json({"patient": q_entry_dict, "priority": priority, "conflicting_queue": q_conf_dict})
     return socket.recv_json()
+
+def serialize_queue(queue: list) -> list:
+    """serialize a queue"""
+    return [serialize_queue_entry(q) for q in queue]
+
+def serialize_queue_entry(queue_entry: Queue) -> dict:
+    """serialize a queue entry"""
+    q_dict = queue_entry.__dict__
+    q_dict['patient'] = q_dict['patient'].__dict__
+    return q_dict
 
 @app.route('/patient', methods=['POST'])
 def patient_register():
@@ -123,9 +137,16 @@ def patient_register():
 
     # send the prompt to the Ollama API
     resp = request_llm(symptoms)
+    print("llm response: " + str(resp))
+    while resp.get('priority', None) is None or resp.get('description', None) is None:
+        resp = request_llm(symptoms)
+        print("re-trying llm response: " + str(resp))
 
     # get the patient from the queue
     patient = Patient.query.filter_by(msi=msi_card_number).first()
+
+    # make the patient object serializabel
+    del patient.__dict__['_sa_instance_state']
 
     queue_position = add_patient_to_queue(resp, patient)
 
