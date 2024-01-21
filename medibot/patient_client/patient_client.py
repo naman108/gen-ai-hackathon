@@ -35,6 +35,7 @@ def cli():
             print("\n")
             click.echo(f'|MSI Card Number: {msi_card_number}\n|Symptoms: {symptoms}')
             response = call_patient_api(msi_card_number, symptoms)
+            click.echo("your priority is " + str(response['priority']))
             break
 
         else:
