@@ -1,7 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-
-db = SQLAlchemy()
-
+from . import db
 class Record(db.Model):
     __tablename__ = 'records'
 

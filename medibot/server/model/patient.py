@@ -1,8 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Column, DateTime, Integer, String
-
-db = SQLAlchemy()
-
+from . import db
 class Patient(db.Model):
     __tablename__ = 'patients'
 
@@ -13,3 +11,4 @@ class Patient(db.Model):
     age = Column(Integer, nullable=False)
     last_visit = Column(DateTime)
     address = Column(String(45), nullable=False)
+    history = Column(String, nullable=True)
